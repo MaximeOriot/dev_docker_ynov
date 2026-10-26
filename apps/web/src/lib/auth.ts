@@ -54,6 +54,7 @@ import {
   LOCALE_COOKIE_OPTIONS,
 } from "@/lib/locale/constants";
 import { isMicrosoftEmailVerified } from "@/lib/oauth/microsoft-claims";
+import { shouldRefuseUnverifiedOAuthSignIn } from "@/lib/oauth/sign-in-policy";
 import { track } from "@/lib/posthog";
 import { getValueByPath } from "@/lib/utils/get-value-by-path";
 
@@ -568,6 +569,20 @@ export const authLib = betterAuth({
           if (user.isAnonymous) {
             return;
           }
+          // Checked before the account exists, so a refused sign-in leaves
+          // no row behind. Existing accounts are covered by the session hook.
+          if (
+            shouldRefuseUnverifiedOAuthSignIn({
+              requireVerifiedEmail: env.OAUTH_REQUIRE_VERIFIED_EMAIL === "true",
+              path: ctx?.path,
+              emailVerified: user.emailVerified,
+            })
+          ) {
+            throw new APIError("FORBIDDEN", {
+              code: "EMAIL_NOT_VERIFIED",
+              message: "email not verified",
+            });
+          }
           // Registration policy: every path that mints an account (OTP
           // sign-in, social and OIDC callbacks, the ID-token variant of
           // /sign-in/social) converges here, so this is where "registration
@@ -631,6 +646,31 @@ export const authLib = betterAuth({
     },
     session: {
       create: {
+        // Better-Auth marks the local user verified when the provider vouches
+        // for the address, so a user still unverified here was not vouched
+        // for: either a new sign-in the user hook already refused, or an
+        // existing account whose address the provider no longer confirms.
+        before: async (session, ctx) => {
+          if (env.OAUTH_REQUIRE_VERIFIED_EMAIL !== "true") {
+            return;
+          }
+          const user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            select: { emailVerified: true },
+          });
+          if (
+            shouldRefuseUnverifiedOAuthSignIn({
+              requireVerifiedEmail: true,
+              path: ctx?.path,
+              emailVerified: user?.emailVerified,
+            })
+          ) {
+            throw new APIError("FORBIDDEN", {
+              code: "EMAIL_NOT_VERIFIED",
+              message: "email not verified",
+            });
+          }
+        },
         after: async (session) => {
           after(async () => {
             const user = await prisma.user

@@ -35,7 +35,11 @@ export const useEditToken = () => {
   return searchParams.get("token") ?? searchParams.get("invite") ?? undefined;
 };
 
-type ActionFailure = "tooManyRequests" | "unauthorized" | "unknown";
+type ActionFailure =
+  | "tooManyRequests"
+  | "unauthorized"
+  | "forbidden"
+  | "unknown";
 
 function toFailureReason(serverError: string | undefined): ActionFailure {
   switch (serverError as AppErrorCode | undefined) {
@@ -43,6 +47,8 @@ function toFailureReason(serverError: string | undefined): ActionFailure {
       return "tooManyRequests";
     case "UNAUTHORIZED":
       return "unauthorized";
+    case "FORBIDDEN":
+      return "forbidden";
     default:
       return "unknown";
   }

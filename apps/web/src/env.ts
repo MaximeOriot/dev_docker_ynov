@@ -74,6 +74,19 @@ export const env = createEnv({
     EMAIL_LOGIN_ENABLED: z.enum(["true", "false"]).default("true"),
     REGISTRATION_ENABLED: z.enum(["true", "false"]).default("true"),
     /**
+     * Only users signed in through an OAuth provider (Google, Microsoft,
+     * OIDC) may respond to polls. Guests and email-only accounts can still
+     * read a poll but not vote.
+     * @default "false"
+     */
+    VOTE_REQUIRES_OAUTH: z.enum(["true", "false"]).default("false"),
+    /**
+     * Refuse OAuth sign-ins whose email address the provider does not vouch
+     * for (`email_verified`).
+     * @default "false"
+     */
+    OAUTH_REQUIRE_VERIFIED_EMAIL: z.enum(["true", "false"]).default("false"),
+    /**
      * Email addresses for support and no-reply emails.
      */
     SUPPORT_EMAIL: z.email(),
@@ -290,6 +303,8 @@ export const env = createEnv({
     ALLOWED_EMAILS: process.env.ALLOWED_EMAILS,
     EMAIL_LOGIN_ENABLED: process.env.EMAIL_LOGIN_ENABLED,
     REGISTRATION_ENABLED: process.env.REGISTRATION_ENABLED,
+    VOTE_REQUIRES_OAUTH: process.env.VOTE_REQUIRES_OAUTH,
+    OAUTH_REQUIRE_VERIFIED_EMAIL: process.env.OAUTH_REQUIRE_VERIFIED_EMAIL,
     AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     AWS_REGION: process.env.AWS_REGION,

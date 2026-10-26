@@ -25,6 +25,7 @@ import {
   isSpaceAttributionHidden,
   isSpaceBrandingActive,
 } from "@/features/space/utils";
+import { hasOAuthAccount } from "@/features/user/data";
 import { decryptToken } from "@/lib/session";
 
 export async function getPoll({
@@ -868,10 +869,13 @@ export async function listPollParticipants({ pollId }: { pollId: string }) {
 
 export async function listPollComments({
   pollId,
+  includeOAuthAuthorEmail,
 }: {
   pollId: string;
+  /** Attach the address of authors who signed in through an OAuth provider. */
+  includeOAuthAuthorEmail: boolean;
 }): Promise<PollComment[]> {
-  return prisma.comment.findMany({
+  const comments = await prisma.comment.findMany({
     where: { pollId },
     select: {
       id: true,
@@ -879,7 +883,54 @@ export async function listPollComments({
       authorName: true,
       userId: true,
       createdAt: true,
+      user: {
+        select: {
+          email: true,
+          isAnonymous: true,
+          accounts: {
+            where: { provider: { not: "credential" } },
+            select: { id: true },
+            take: 1,
+          },
+        },
+      },
     },
     orderBy: [{ createdAt: "asc" }],
   });
+
+  return comments.map(({ user, ...comment }) => ({
+    ...comment,
+    authorEmail:
+      includeOAuthAuthorEmail &&
+      user &&
+      !user.isAnonymous &&
+      user.accounts.length > 0
+        ? user.email
+        : null,
+  }));
+}
+
+/**
+ * Whether the user may respond to polls. Open to everyone unless the
+ * operator reserves voting for people who signed in through an OAuth
+ * provider (`requireOAuth`, from the `voteRequiresOAuth` flag). Guests never
+ * qualify, and neither does a request with no session at all (a bare edit
+ * link).
+ */
+export async function canUserRespond({
+  user,
+  requireOAuth,
+}: {
+  user: { id: string; isGuest: boolean } | null;
+  requireOAuth: boolean;
+}) {
+  if (!requireOAuth) {
+    return true;
+  }
+
+  if (!user || user.isGuest) {
+    return false;
+  }
+
+  return hasOAuthAccount(user.id);
 }

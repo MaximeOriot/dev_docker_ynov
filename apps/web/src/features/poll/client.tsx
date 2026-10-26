@@ -51,6 +51,11 @@ type PollContextValue = {
   linkedParticipantIds: string[];
   /** Which surface the page is: the host's admin page or the invite page. */
   viewerRole: "admin" | "participant";
+  /**
+   * False when the instance reserves voting for OAuth users and the viewer
+   * is not one. Resolved on the server from the same rule the actions check.
+   */
+  canRespond: boolean;
 };
 
 const PollContext = React.createContext<PollContextValue | null>(null);
@@ -68,14 +73,30 @@ export function PollProvider({
   comments,
   linkedParticipantIds = [],
   viewerRole,
+  canRespond = true,
   children,
-}: Omit<PollContextValue, "linkedParticipantIds"> & {
+}: Omit<PollContextValue, "linkedParticipantIds" | "canRespond"> & {
   linkedParticipantIds?: string[];
+  canRespond?: boolean;
   children: React.ReactNode;
 }) {
   const value = React.useMemo(
-    () => ({ poll, participants, comments, linkedParticipantIds, viewerRole }),
-    [poll, participants, comments, linkedParticipantIds, viewerRole],
+    () => ({
+      poll,
+      participants,
+      comments,
+      linkedParticipantIds,
+      viewerRole,
+      canRespond,
+    }),
+    [
+      poll,
+      participants,
+      comments,
+      linkedParticipantIds,
+      viewerRole,
+      canRespond,
+    ],
   );
 
   return <PollContext.Provider value={value}>{children}</PollContext.Provider>;
@@ -88,6 +109,9 @@ export const usePoll = () => useRequiredContext(PollContext).poll;
 export const usePollOrNull = () => React.useContext(PollContext)?.poll ?? null;
 
 export const useRole = () => useRequiredContext(PollContext).viewerRole;
+
+/** Whether this viewer may respond; false under `VOTE_REQUIRES_OAUTH`. */
+export const useCanRespond = () => useRequiredContext(PollContext).canRespond;
 
 export const useComments = () => useRequiredContext(PollContext).comments;
 
@@ -115,12 +139,12 @@ export const useParticipants = () => {
 };
 
 export const usePermissions = () => {
-  const { poll, participants, linkedParticipantIds, viewerRole } =
+  const { poll, participants, linkedParticipantIds, viewerRole, canRespond } =
     useRequiredContext(PollContext);
   const { user } = useUser();
 
   return {
-    canAddNewParticipant: poll.status === "open",
+    canAddNewParticipant: poll.status === "open" && canRespond,
     canEditParticipant: (participantId: string) => {
       if (poll.status !== "open") {
         return false;
@@ -128,6 +152,12 @@ export const usePermissions = () => {
 
       if (viewerRole === "admin") {
         return true;
+      }
+
+      // Same rule as the vote actions: a viewer who may not respond cannot
+      // edit through a link either.
+      if (!canRespond) {
+        return false;
       }
 
       const participant = participants.find(
