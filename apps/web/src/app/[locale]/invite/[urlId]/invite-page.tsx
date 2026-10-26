@@ -2,6 +2,7 @@
 import { Spinner } from "@/components/spinner";
 import { EventCard } from "@/features/poll/components/event-card";
 import { PollFooter } from "@/features/poll/components/poll-footer";
+import { PollResultsSummary } from "@/features/poll/components/poll-results-summary";
 import { ResponsiveResults } from "@/features/poll/components/responsive-results";
 import { VotingForm } from "@/features/poll/components/voting-form";
 import { CreatorBanner } from "@/features/poll/invite/components/creator-banner";
@@ -40,6 +41,7 @@ export function InvitePage({
       >
         <CreatorBanner />
         <EventCard description={description} />
+        <PollResultsSummary />
         <VotingForm>
           <ResponsiveResults />
           <FloatingComments />
