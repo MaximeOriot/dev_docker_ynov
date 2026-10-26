@@ -14,6 +14,7 @@ import { EmailBudgetStore } from "@/features/email-budget/service";
 import { getNotificationRecipient } from "@/features/notifications/data";
 import { createUnsubscribeToken } from "@/features/notifications/utils";
 import {
+  canUserRespond,
   getParticipant,
   hasPollAdminAccess,
   listParticipantIdsByToken,
@@ -35,6 +36,7 @@ import { isPollOpen } from "@/features/poll/utils";
 import { getLocale } from "@/i18n/server/get-locale";
 import { runtime } from "@/lib/effect/runtime";
 import { AppError } from "@/lib/errors/app-error";
+import { isFeatureEnabled } from "@/lib/feature-flags/server";
 import { flushPostHog, track, trackSystemEvent } from "@/lib/posthog";
 import {
   anyUserActionClient,
@@ -65,10 +67,13 @@ async function authorizeParticipantEdit({
   participantId,
   token,
   user,
+  forVotes = false,
 }: {
   participantId: string;
   token: string | undefined;
   user: Actor | null;
+  /** Changes votes, so the instance's voting policy applies. */
+  forVotes?: boolean;
 }) {
   const participant = await getParticipant({ participantId });
 
@@ -83,9 +88,11 @@ async function authorizeParticipantEdit({
     return { ok: false as const, reason: "closed" as const };
   }
 
+  const isAdmin = user
+    ? await hasPollAdminAccess(participant.pollId, user.id)
+    : false;
   const ownedBySession = user
-    ? participant.userId === user.id ||
-      (await hasPollAdminAccess(participant.pollId, user.id))
+    ? participant.userId === user.id || isAdmin
     : false;
 
   const ownedByLink =
@@ -99,6 +106,23 @@ async function authorizeParticipantEdit({
     throw new AppError({
       code: "FORBIDDEN",
       message: "You are not allowed to modify this participant",
+    });
+  }
+
+  // Moderating a response is not voting, so poll admins keep it when the
+  // instance reserves voting for OAuth users. Everyone else, a link holder
+  // without a session included, must qualify to change votes.
+  if (
+    forVotes &&
+    !isAdmin &&
+    !(await canUserRespond({
+      user,
+      requireOAuth: isFeatureEnabled("voteRequiresOAuth"),
+    }))
+  ) {
+    throw new AppError({
+      code: "FORBIDDEN",
+      message: "Voting is limited to users signed in with an OAuth provider",
     });
   }
 
@@ -185,6 +209,19 @@ export const addParticipantAction = anyUserActionClient
   .inputSchema(addParticipantSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { pollId, votes, name, email, note, timeZone, token } = parsedInput;
+
+    if (
+      !(await canUserRespond({
+        user: ctx.user,
+        requireOAuth: isFeatureEnabled("voteRequiresOAuth"),
+      }))
+    ) {
+      throw new AppError({
+        code: "FORBIDDEN",
+        message: "Voting is limited to users signed in with an OAuth provider",
+      });
+    }
+
     const locale = await getLocale();
 
     const result = await addParticipant({
@@ -293,6 +330,7 @@ export const updateParticipantVotesAction = optionalUserActionClient
       participantId,
       token,
       user: ctx.user,
+      forVotes: true,
     });
 
     if (!authorization.ok) {

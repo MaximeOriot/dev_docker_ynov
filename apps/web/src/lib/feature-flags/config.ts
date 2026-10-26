@@ -27,6 +27,9 @@ export const featureFlagConfig: FeatureFlagConfig = {
   // on first sign-in, and the create hook in lib/auth.ts enforces this flag
   // on every path that mints an account, social callbacks included.
   registration: isRegistrationEnabled,
+  // An operator policy for instances that front their own directory: only
+  // people who signed in through an OAuth provider may respond to a poll.
+  voteRequiresOAuth: env.VOTE_REQUIRES_OAUTH === "true",
   calendars: isCalendarsEnabled,
   conferencing: isConferencingEnabled,
   eventTypes: isEventTypesEnabled,

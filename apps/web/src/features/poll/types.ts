@@ -66,6 +66,12 @@ export type PollComment = {
   id: string;
   content: string;
   authorName: string;
+  /**
+   * The author's address, only for authors who signed in through an OAuth
+   * provider and only when the instance reserves voting for them
+   * (`VOTE_REQUIRES_OAUTH`); null otherwise.
+   */
+  authorEmail: string | null;
   userId: string | null;
   createdAt: Date;
 };

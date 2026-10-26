@@ -167,6 +167,11 @@ export const NewParticipantForm = (props: NewParticipantModalProps) => {
           defaultValue:
             "You have made too many attempts. Please wait a while and try again.",
         });
+      case "forbidden":
+        return t("newParticipantFormErrorForbidden", {
+          defaultValue:
+            "You are not allowed to respond to this poll. Sign in with your organization's single sign-on and try again.",
+        });
       case "unauthorized":
         return t("newParticipantFormErrorUnauthorized", {
           defaultValue:

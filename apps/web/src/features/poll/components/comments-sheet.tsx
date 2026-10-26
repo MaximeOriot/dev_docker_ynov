@@ -361,6 +361,11 @@ function CommentsSheetInner({ className }: { className?: string }) {
                             </DropdownMenu>
                           )}
                         </div>
+                        {comment.authorEmail ? (
+                          <div className="truncate pl-8 text-muted-foreground text-xs">
+                            {comment.authorEmail}
+                          </div>
+                        ) : null}
                         <div className="w-fit whitespace-pre-wrap pl-8 text-foreground text-sm leading-relaxed">
                           <TruncatedLinkify>{comment.content}</TruncatedLinkify>
                         </div>

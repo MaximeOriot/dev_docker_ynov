@@ -7,6 +7,7 @@ import { listPollActivity } from "@/features/activity/data";
 import { loadConferencingOptions } from "@/features/conferencing/loaders";
 import {
   canUserManagePoll,
+  canUserRespond,
   getPoll,
   getPollAvailability,
   getPollDetails,
@@ -24,6 +25,7 @@ import {
 import { loadActiveSpaceContentScope } from "@/features/space/loaders";
 import { getUser } from "@/features/user/data";
 import { getSession } from "@/lib/auth";
+import { isFeatureEnabled } from "@/lib/feature-flags/server";
 
 export const loadPollStatusCounts = cache(async () => {
   const scope = await loadActiveSpaceContentScope();
@@ -176,11 +178,18 @@ export const loadInvitePoll = cache(
       await Promise.all([
         getSession(),
         listPollParticipants({ pollId }),
-        listPollComments({ pollId }),
+        listPollComments({
+          pollId,
+          includeOAuthAuthorEmail: isFeatureEnabled("voteRequiresOAuth"),
+        }),
         token ? listParticipantIdsByToken({ pollId, token }) : [],
       ]);
 
     const user = session?.user ?? null;
+    const canRespond = await canUserRespond({
+      user,
+      requireOAuth: isFeatureEnabled("voteRequiresOAuth"),
+    });
     const viewer = { userId: user?.id ?? null, linkedParticipantIds };
 
     return {
@@ -196,6 +205,7 @@ export const loadInvitePoll = cache(
         hideParticipants: poll.hideParticipants,
       }),
       linkedParticipantIds,
+      canRespond,
       user,
     };
   },
@@ -220,9 +230,16 @@ export const loadAdminPoll = cache(async (pollId: string) => {
     redirect(`/invite/${pollId}`);
   }
 
-  const [participants, comments] = await Promise.all([
+  const [participants, comments, canRespond] = await Promise.all([
     listPollParticipants({ pollId }),
-    listPollComments({ pollId }),
+    listPollComments({
+      pollId,
+      includeOAuthAuthorEmail: isFeatureEnabled("voteRequiresOAuth"),
+    }),
+    canUserRespond({
+      user,
+      requireOAuth: isFeatureEnabled("voteRequiresOAuth"),
+    }),
   ]);
 
   return {
@@ -236,6 +253,7 @@ export const loadAdminPoll = cache(async (pollId: string) => {
       editUrl: shortUrl(getPollInvitePath({ pollId, token })),
     })),
     comments,
+    canRespond,
     user,
   };
 });

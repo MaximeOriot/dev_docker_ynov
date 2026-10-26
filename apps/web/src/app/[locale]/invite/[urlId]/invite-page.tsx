@@ -4,6 +4,7 @@ import { EventCard } from "@/features/poll/components/event-card";
 import { PollFooter } from "@/features/poll/components/poll-footer";
 import { PollResultsSummary } from "@/features/poll/components/poll-results-summary";
 import { ResponsiveResults } from "@/features/poll/components/responsive-results";
+import { VoteLockNotice } from "@/features/poll/components/vote-lock-notice";
 import { VotingForm } from "@/features/poll/components/voting-form";
 import { CreatorBanner } from "@/features/poll/invite/components/creator-banner";
 import { FloatingComments } from "@/features/poll/invite/components/floating-comments";
@@ -42,6 +43,7 @@ export function InvitePage({
         <CreatorBanner />
         <EventCard description={description} />
         <PollResultsSummary />
+        <VoteLockNotice />
         <VotingForm>
           <ResponsiveResults />
           <FloatingComments />

@@ -20,6 +20,8 @@ export function AuthErrors() {
         </p>
       );
     case "email_not_verified":
+    // Better-Auth reports a refusal thrown from a database hook by its code.
+    case "EMAIL_NOT_VERIFIED":
       return (
         <p className="text-destructive text-sm">
           {t("authErrorsEmailNotVerified", {

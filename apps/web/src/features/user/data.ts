@@ -33,6 +33,18 @@ export const getUser = async (userId: string) => {
   return createUserDTO(user);
 };
 
+/**
+ * Whether the user has signed in through an OAuth provider (Google,
+ * Microsoft, OIDC). Email OTP users have no account row and password users
+ * hold a `credential` one, so neither counts.
+ */
+export async function hasOAuthAccount(userId: string) {
+  const count = await prisma.account.count({
+    where: { userId, provider: { not: "credential" } },
+  });
+  return count > 0;
+}
+
 export function getUserProfile(userId: string) {
   return prisma.user.findUnique({
     where: { id: userId },

@@ -42,12 +42,14 @@ async function PollHeaderActions({
   await loadPoll(pollId);
   // The finalize dialog and CSV export read the whole poll, votes included,
   // from the poll context the legacy admin page provides.
-  const { poll, participants, comments } = await loadAdminPoll(pollId);
+  const { poll, participants, comments, canRespond } =
+    await loadAdminPoll(pollId);
   return (
     <PollProvider
       poll={poll}
       participants={participants}
       comments={comments}
+      canRespond={canRespond}
       viewerRole="admin"
     >
       <LegacyPollContextProvider>

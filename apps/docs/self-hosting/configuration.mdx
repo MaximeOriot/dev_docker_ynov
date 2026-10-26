@@ -92,6 +92,18 @@ An SMTP server is required to send magic-link sign-in emails and notifications.
   <Note>Available from v4.4.0 and later.</Note>
 </ParamField>
 
+<ParamField path="VOTE_REQUIRES_OAUTH" default="false">
+  Set to `true` to reserve voting for users who signed in through an OAuth provider (Google, Microsoft or OpenID Connect). Guests and accounts that only use email sign-in can still view a poll but cannot add or change a response; they see a prompt to sign in instead. Poll admins can still moderate existing responses. The check runs on the server, so an emailed edit link no longer lets a guest change their votes.
+
+  <Note>Requires at least one SSO provider to be configured, otherwise nobody can vote.</Note>
+</ParamField>
+
+<ParamField path="OAUTH_REQUIRE_VERIFIED_EMAIL" default="false">
+  Set to `true` to refuse OAuth sign-ins whose email address the identity provider does not vouch for. For OpenID Connect this means the `email_verified` claim must be `true`; Google always provides it, and Microsoft uses the claims described in the [Single Sign-On guide](/self-hosting/single-sign-on). A refused user sees "Your email address is not verified" and no account is created. An existing account whose address was already verified, for example through an email code, is not affected.
+
+  <Warning>Many OIDC providers omit `email_verified`. Check that yours sends it before enabling this, or every OIDC sign-in will be refused.</Warning>
+</ParamField>
+
 <ParamField path="ALLOWED_EMAILS">
   Comma-separated list of email addresses allowed to register and sign in. Wildcards are supported. Example: `*@example.com` allows any address on that domain.
 </ParamField>

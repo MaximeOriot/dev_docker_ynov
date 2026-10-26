@@ -54,7 +54,7 @@ async function InvitePageContent({ params, searchParams }: PageProps) {
   );
 
   const [
-    { poll, participants, comments, linkedParticipantIds, user },
+    { poll, participants, comments, linkedParticipantIds, canRespond, user },
     locale,
     deviceDateTimeConfig,
     footerLinks,
@@ -80,6 +80,7 @@ async function InvitePageContent({ params, searchParams }: PageProps) {
             participants={participants}
             comments={comments}
             linkedParticipantIds={linkedParticipantIds}
+            canRespond={canRespond}
             viewerRole="participant"
           >
             <LegacyPollContextProvider>
