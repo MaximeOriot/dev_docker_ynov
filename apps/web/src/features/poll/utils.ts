@@ -188,6 +188,34 @@ export function rankOptionsByPopularity<T extends { id: string }>({
     });
 }
 
+/**
+ * `rankOptionsByPopularity` with a place per option for the results summary.
+ * Options tied on yes and if need be share a place (1, 1, 3). Options nobody
+ * can attend have no place.
+ */
+export function placeOptionsByPopularity<T extends { id: string }>({
+  options,
+  participants,
+}: {
+  options: T[];
+  participants: { id: string; votes: { optionId: string; type: VoteType }[] }[];
+}) {
+  const ranked = rankOptionsByPopularity({ options, participants });
+  let place = 0;
+  return ranked.map((option, index) => {
+    const previous = ranked[index - 1];
+    if (
+      !previous ||
+      previous.votes.yes.length !== option.votes.yes.length ||
+      previous.votes.ifNeedBe.length !== option.votes.ifNeedBe.length
+    ) {
+      place = index + 1;
+    }
+    const available = option.votes.yes.length + option.votes.ifNeedBe.length;
+    return { ...option, available, place: available > 0 ? place : null };
+  });
+}
+
 const notifyBuckets = {
   yes: "yes",
   ifNeedBe: "if_need_be",
