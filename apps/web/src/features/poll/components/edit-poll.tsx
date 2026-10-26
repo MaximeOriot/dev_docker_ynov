@@ -20,7 +20,11 @@ import {
   toConferencingFormValues,
   toPollConferencing,
 } from "@/features/conferencing/components/conferencing-field";
-import { useParticipants, usePoll } from "@/features/poll/client";
+import {
+  useParticipants,
+  usePoll,
+  useResolveClosesAt,
+} from "@/features/poll/client";
 import { PollDetailsForm } from "@/features/poll/components/forms/poll-details-form";
 import PollOptionsForm from "@/features/poll/components/forms/poll-options-form/poll-options-form";
 import { PollSettingsForm } from "@/features/poll/components/forms/poll-settings";
@@ -31,7 +35,10 @@ import type {
 import { useUpdatePollMutation } from "@/features/poll/components/mutations";
 import { SelectedOptionsCount } from "@/features/poll/components/selected-options-count";
 import type { PollDetails } from "@/features/poll/types";
-import { filterParticipantsByVote } from "@/features/poll/utils";
+import {
+  closesAtToField,
+  filterParticipantsByVote,
+} from "@/features/poll/utils";
 import { useUser } from "@/features/user/client";
 import { Trans, useTranslation } from "@/i18n/client";
 import {
@@ -93,6 +100,7 @@ function getDefaultValues(poll: PollDetails): NewEventData {
     enableComments: !poll.disableComments,
     allowTentativeVotes: poll.allowTentativeVotes,
     requireParticipantEmail: poll.requireParticipantEmail,
+    ...closesAtToField(poll.closesAt, getBrowserTimeZone()),
   };
 }
 
@@ -186,6 +194,7 @@ export function EditPoll({
   const router = useRouter();
   const modalContext = useModalContext();
   const update = useUpdatePollMutation();
+  const resolveClosesAt = useResolveClosesAt();
 
   // The answer set is locked once a response uses the tentative vote, so
   // those votes stay re-saveable by their owner.
@@ -227,6 +236,19 @@ export function EditPoll({
       input.optionsToAdd = dateChanges.optionsToAdd;
     }
 
+    const closesAtChanged =
+      (data.closesAtDate ?? "") !== (defaultValues.closesAtDate ?? "") ||
+      (data.closesAtTime ?? "") !== (defaultValues.closesAtTime ?? "");
+    if (closesAtChanged) {
+      const resolved = resolveClosesAt(data.closesAtDate, data.closesAtTime);
+      if (!resolved.ok) {
+        return;
+      }
+      // Cleared means no closing time: null removes it, as undefined would
+      // leave the stored one.
+      input.closesAt = resolved.closesAt ?? null;
+    }
+
     const settingsChanged = settingFields.some(isChanged);
     if (settingsChanged) {
       input.hideParticipants = data.hideParticipants;
@@ -236,7 +258,12 @@ export function EditPoll({
       input.requireParticipantEmail = data.requireParticipantEmail;
     }
 
-    if (!detailsChanged && !dateChanges && !settingsChanged) {
+    if (
+      !detailsChanged &&
+      !dateChanges &&
+      !settingsChanged &&
+      !closesAtChanged
+    ) {
       router.push(returnHref);
       return;
     }
