@@ -41,6 +41,40 @@ jobs:
       - name: Run sherif
         run: pnpm dlx sherif@latest
 
+  trivy:
+    name: Trivy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # Third-party actions are normally pinned by tag here, but Trivy's own
+      # action had its tags rewritten in March 2026, so this one is pinned by
+      # commit. v0.36.0 is an immutable release; bump by looking up the new
+      # tag's commit, not by changing the tag alone.
+      - name: Scan for secrets and misconfigurations
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      # Report only for now: the lockfile has fixable HIGH/CRITICAL findings
+      # that need a dependency update pass first. Set exit-code to "1" once
+      # that is done so new ones fail the build.
+      - name: Report vulnerable dependencies
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+
   linting:
     name: Linting
     runs-on: ubuntu-latest
@@ -109,6 +143,26 @@ jobs:
           echo "$status" | jq -e '.database == "connected"'
           curl -fsSL --connect-timeout 5 --max-time 15 \
             -o /dev/null http://localhost:3000/login
+
+      # Scans what the stack is actually running, so the base image, apt
+      # packages and the npm bundled with Node are covered, not just the
+      # lockfile. Report only, for the same reason as the dependency scan in
+      # the Trivy job; the image currently carries fixable HIGH/CRITICAL
+      # findings in Debian, Next.js and the bundled npm.
+      - name: Find the image the stack runs
+        id: image
+        run: |
+          container=$(docker compose --env-file apps/web/.env ps -q rallly_selfhosted)
+          echo "id=$(docker inspect --format '{{.Image}}' "$container")" >> "$GITHUB_OUTPUT"
+
+      - name: Report vulnerabilities in the image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.id }}
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
 
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/pnpm-install
