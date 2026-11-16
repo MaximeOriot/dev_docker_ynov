@@ -77,7 +77,9 @@ jobs:
 
   docker-smoke-test:
     name: Docker smoke test
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.58 has no
+    # Chromium build for. Bump once Playwright supports it.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
