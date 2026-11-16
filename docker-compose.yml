@@ -3,12 +3,16 @@ services:
     image: postgres:18-alpine
     restart: always
     ports:
-      - "5450:5432"
+      # Loopback only: the app reaches the database over the compose
+      # network, so the host port is just for local tooling.
+      - "127.0.0.1:5450:5432"
     volumes:
       - db-data:/var/lib/postgresql
     environment:
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=rallly
+      # Values come from apps/web/.env: run compose with
+      # `--env-file apps/web/.env`
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in apps/web/.env}
+      - POSTGRES_DB=${POSTGRES_DB:-rallly}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -28,7 +32,8 @@ services:
     ports:
       - 3000:3000
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@rallly_db/rallly
+      # URL-encode the password if it contains reserved characters
+      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@rallly_db/${POSTGRES_DB:-rallly}
     env_file:
       - path: apps/web/.env
         required: false

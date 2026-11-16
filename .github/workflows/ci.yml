@@ -83,17 +83,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Shell exports don't reach the container — compose only forwards
-      # DATABASE_URL. The env_file (apps/web/.env) is how the stack reads
-      # config, so write the documented-required variables there.
+      # Shell exports don't reach the container. The env_file
+      # (apps/web/.env) is how the stack reads config, and --env-file makes
+      # compose interpolate POSTGRES_* from the same file, so write the
+      # documented-required variables there.
       - name: Start services
         run: |
           cat > apps/web/.env <<'EOF'
           SECRET_PASSWORD=0123456789abcdef0123456789abcdef
           SUPPORT_EMAIL=support@example.com
           NEXT_PUBLIC_BASE_URL=http://localhost:3000
+          POSTGRES_PASSWORD=postgres
           EOF
-          docker compose up -d --build --wait --wait-timeout 60
+          docker compose --env-file apps/web/.env up -d --build --wait --wait-timeout 60
 
       # The image healthcheck hits /api/status, but that endpoint returns
       # 200 even when the database is unreachable and doesn't touch env
@@ -121,7 +123,7 @@ jobs:
 
       - name: Show logs on failure
         if: failure()
-        run: docker compose logs
+        run: docker compose --env-file apps/web/.env logs
 
   # Resolves the @playwright/test version from the lockfile so the container
   # image tag below stays in sync with it automatically.
