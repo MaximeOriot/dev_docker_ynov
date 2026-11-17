@@ -3,12 +3,15 @@ services:
     image: postgres:18-alpine
     restart: always
     ports:
-      - "5450:5432"
+      # Loopback only: `pnpm dev` and prisma run on the host, but nothing
+      # else on the network should reach the database.
+      - "127.0.0.1:5450:5432"
     volumes:
       - db-data:/var/lib/postgresql
     environment:
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=rallly
+      # Values come from apps/web/.env (see the docker:* scripts)
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in apps/web/.env}
+      - POSTGRES_DB=${POSTGRES_DB:-rallly}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -32,7 +35,7 @@ services:
     image: hiett/serverless-redis-http:latest
     environment:
       SRH_MODE: env
-      SRH_TOKEN: dev_fake_token_123456789abcdefghijklmnop
+      SRH_TOKEN: ${KV_REST_API_TOKEN:?Set KV_REST_API_TOKEN in apps/web/.env}
       SRH_CONNECTION_STRING: "redis://redis:6379"
   garage:
     image: dxflrs/garage:v2.3.0
@@ -45,9 +48,9 @@ services:
       - garage-meta:/var/lib/garage/meta
       - garage-data:/var/lib/garage/data
     environment:
-      - GARAGE_DEFAULT_ACCESS_KEY=rallly-access-key
-      - GARAGE_DEFAULT_SECRET_KEY=rallly-secret-key
-      - GARAGE_DEFAULT_BUCKET=rallly
+      - GARAGE_DEFAULT_ACCESS_KEY=${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID in apps/web/.env}
+      - GARAGE_DEFAULT_SECRET_KEY=${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY in apps/web/.env}
+      - GARAGE_DEFAULT_BUCKET=${S3_BUCKET_NAME:-rallly}
     command: /garage server --single-node --default-bucket
     healthcheck:
       test: ["CMD", "/garage", "stats", "-a"]
@@ -74,12 +77,12 @@ services:
       garage:
         condition: service_healthy
     environment:
-      - AWS_ACCESS_KEY_ID=rallly-access-key
-      - AWS_SECRET_ACCESS_KEY=rallly-secret-key
-      - AWS_DEFAULT_REGION=garage
+      - AWS_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:?Set S3_ACCESS_KEY_ID in apps/web/.env}
+      - AWS_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:?Set S3_SECRET_ACCESS_KEY in apps/web/.env}
+      - AWS_DEFAULT_REGION=${S3_REGION:-garage}
     volumes:
       - ./docker/cors.json:/cors.json:ro
-    entrypoint: ["sh", "-c", "aws --endpoint-url http://garage:3900 s3api put-bucket-cors --bucket rallly --cors-configuration file:///cors.json"]
+    entrypoint: ["sh", "-c", "aws --endpoint-url http://garage:3900 s3api put-bucket-cors --bucket ${S3_BUCKET_NAME:-rallly} --cors-configuration file:///cors.json"]
     restart: "no"
 
 volumes:
